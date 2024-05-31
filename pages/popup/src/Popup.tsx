@@ -1,11 +1,33 @@
 import '@src/Popup.css';
 import { useStorageSuspense, withErrorBoundary, withSuspense } from '@chrome-extension-boilerplate/shared';
-import { exampleThemeStorage } from '@chrome-extension-boilerplate/storage';
-
-import { ComponentPropsWithoutRef } from 'react';
+import { appStorage, exampleThemeStorage } from '@chrome-extension-boilerplate/storage';
+import { useState } from 'react';
 
 const Popup = () => {
   const theme = useStorageSuspense(exampleThemeStorage);
+  const { apiKey } = useStorageSuspense(appStorage);
+  const [value, setValue] = useState(apiKey === null ? '' : apiKey);
+  const hasApiKey = apiKey !== null;
+
+  const onSaveApiKey = () => {
+    appStorage.setApiKey(value);
+    console.log('success set api key ', value);
+  };
+
+  const summaryHandler = () => {
+    if (!apiKey) {
+      return alert('请先设置 api key');
+    }
+
+    // 向 content 发送请求
+    chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
+      if (tabs[0].id) {
+        chrome.tabs.sendMessage(tabs[0].id, { type: 'CREATE_SUMMARY' }, result => {
+          console.log('popup 接收到文章解析，准备生成dom', result);
+        });
+      }
+    });
+  };
 
   return (
     <div
@@ -15,37 +37,16 @@ const Popup = () => {
       }}>
       <header className="App-header" style={{ color: theme === 'light' ? '#222' : '#eee' }}>
         <img src={chrome.runtime.getURL('newtab/logo.svg')} className="App-logo" alt="logo" />
-
-        <p>
-          Edit <code>pages/popup/src/Popup.tsx</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{ color: theme === 'light' ? '#0281dc' : undefined, marginBottom: '10px' }}>
-          Learn React!
-        </a>
-        <ToggleButton>Toggle theme</ToggleButton>
+        <input
+          className="input"
+          value={value}
+          onChange={event => setValue(event.target.value)}
+          placeholder="please input your api key "
+        />
+        <button onClick={onSaveApiKey}>{hasApiKey ? 'Reset Api Key' : 'Set Api Key'}</button>
+        <button onClick={summaryHandler}>分析文章内容</button>
       </header>
     </div>
-  );
-};
-
-const ToggleButton = (props: ComponentPropsWithoutRef<'button'>) => {
-  const theme = useStorageSuspense(exampleThemeStorage);
-  return (
-    <button
-      className={
-        props.className +
-        ' ' +
-        'font-bold mt-4 py-1 px-4 rounded shadow hover:scale-105 ' +
-        (theme === 'light' ? 'bg-white text-black' : 'bg-black text-white')
-      }
-      onClick={exampleThemeStorage.toggle}>
-      {props.children}
-    </button>
   );
 };
 
